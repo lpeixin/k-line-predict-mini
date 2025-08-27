@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "k-line-predict-mini"
+version = "0.1.0"
+description = "A local stock price prediction tool using Kronos-mini model"
+readme = "README.md"
+authors = [{name = "Developer", email = "developer@example.com"}]
+license = {text = "MIT"}
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Financial and Insurance Industry",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+requires-python = ">=3.8"
+dependencies = [
+    "yfinance>=0.2.18",
+    "akshare>=1.12.0",
+    "pandas>=2.0.0",
+    "numpy>=1.24.0",
+    "scikit-learn>=1.3.0",
+    "requests>=2.31.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/your-username/k-line-predict-mini"
+
+[project.scripts]
+stock-predict = "main:main"
