@@ -5,7 +5,7 @@ import sys
 from typing import Optional
 from database import StockDatabase
 from data_fetcher import DataFetcher
-from predictor import KronosMiniPredictor
+from predictor import KronosMiniPredictor, KronosNotAvailableError
 import pandas as pd
 from datetime import datetime, timedelta
 
@@ -40,18 +40,14 @@ def main():
     if real_time_price:
         print(f"Current price: ${real_time_price:.2f}")
     
-    # Train predictor
-    try:
-        predictor.train(data)
-    except ValueError as e:
-        print(f"Error training model: {e}")
-        sys.exit(1)
-    
-    # Predict future prices
+    # Predict future prices (Kronos is pre-trained; no local training step)
     try:
         predictions = predictor.predict_next_days(data, args.days)
+    except KronosNotAvailableError as e:
+        print(str(e))
+        sys.exit(2)
     except ValueError as e:
-        print(f"Error making predictions: {e}")
+        print(f"Prediction error: {e}")
         sys.exit(1)
     
     # Display predictions

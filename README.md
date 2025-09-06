@@ -1,10 +1,10 @@
-# Local Stock Price Predictor
+# Local Stock Price Predictor (Kronos-mini Powered)
 
-A local stock price prediction tool using Kronos-mini model with support for US, HK, CN stocks and cryptocurrencies.
+A local stock & crypto K-line forecasting tool integrating the open-source Kronos-mini foundation model ("NeoQuasar/Kronos-mini"). Supports US, HK, CN stocks and major cryptocurrencies.
 
 ## Features
 
-- Predicts stock prices for the next 5 days
+- Predicts future daily close prices (default 5 days) using Kronos-mini
 - Supports US, Hong Kong, Chinese A-shares, and cryptocurrencies
 - Uses local SQLite database to cache historical data
 - Real-time price fetching
@@ -101,9 +101,40 @@ python main.py AAPL US --days 10
    - `yfinance` for US/HK stocks and cryptocurrencies
    - `akshare` for Chinese A-shares
 2. Caches data in local SQLite database
-3. Uses a simple linear regression model (Kronos-mini) for price prediction
+3. Uses the pre-trained Kronos-mini foundation model (no local training step)
 4. Provides real-time price and future predictions
 
-## Note
+## Kronos-mini Integration
 
-This is a simplified prediction model for educational purposes. Stock market prediction is inherently uncertain, and past performance does not guarantee future results. Use predictions at your own risk.
+This project wraps the official Kronos repository instead of copying its code. You must clone the Kronos repo (once) so that the `model` package is importable:
+
+```bash
+git clone https://github.com/shiyu-coder/Kronos.git kronos_repo
+export KRONOS_REPO_PATH=$(pwd)/kronos_repo
+```
+
+Or add the path to `PYTHONPATH` manually. At runtime the wrapper attempts:
+
+1. Native import (`import model`)
+2. `KRONOS_REPO_PATH`
+3. Local folders `./kronos_repo` or `./Kronos`
+
+If not found, an actionable error is shown.
+
+### Extra Dependencies
+
+Install torch etc. (CPU example):
+
+```bash
+pip install torch --index-url https://download.pytorch.org/whl/cpu
+```
+
+Then install Kronos dependencies (in the cloned repo):
+
+```bash
+pip install -r kronos_repo/requirements.txt
+```
+
+## Disclaimer
+
+Financial forecasts are uncertain; this tool is for research/education only. No investment advice.
