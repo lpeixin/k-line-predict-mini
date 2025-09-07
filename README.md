@@ -61,12 +61,13 @@ pip install -e .
 ## Usage
 
 ```
-python main.py <SYMBOL> <MARKET> [--days N]
+python main.py <SYMBOL> <MARKET> [--days N] [--model-variant mini|small|base] \
+   [--model-id HF_MODEL_ID] [--tokenizer-id HF_TOKENIZER_ID] [--device DEV] [--max-context N]
 ```
 
-Or if installed as a package:
+If installed as a package:
 ```
-stock-predict <SYMBOL> <MARKET> [--days N]
+stock-predict <SYMBOL> <MARKET> [...same options]
 ```
 
 ### Examples:
@@ -86,6 +87,16 @@ python main.py BTC crypto
 
 # Predict for 10 days instead of default 5
 python main.py AAPL US --days 10
+
+# Use the small preset variant
+python main.py AAPL US --model-variant small
+
+# Explicit model & tokenizer ids
+python main.py AAPL US --model-id NeoQuasar/Kronos-base \
+   --tokenizer-id NeoQuasar/Kronos-Tokenizer-base
+
+# Override context length (clamped if exceeds variant limit)
+python main.py AAPL US --max-context 400
 ```
 
 ## Supported Markets
@@ -104,7 +115,7 @@ python main.py AAPL US --days 10
 3. Uses the pre-trained Kronos-mini foundation model (no local training step)
 4. Provides real-time price and future predictions
 
-## Kronos-mini Integration
+## Kronos Integration & Configuration
 
 This project wraps the official Kronos repository instead of copying its code. You must clone the Kronos repo (once) so that the `model` package is importable:
 
@@ -120,6 +131,30 @@ Or add the path to `PYTHONPATH` manually. At runtime the wrapper attempts:
 3. Local folders `./kronos_repo` or `./Kronos`
 
 If not found, an actionable error is shown.
+
+### Configuration Precedence
+
+CLI arguments > Environment variables > Variant preset defaults.
+
+Environment variables (used when corresponding CLI args omitted):
+
+```bash
+export KRONOS_MODEL_VARIANT=mini        # or small / base
+export KRONOS_MODEL_ID=NeoQuasar/Kronos-mini
+export KRONOS_TOKENIZER_ID=NeoQuasar/Kronos-Tokenizer-2k
+export KRONOS_MAX_CONTEXT=2048
+export KRONOS_DEVICE=cuda:0
+```
+
+### Variant Presets
+
+| Variant | Model ID                     | Tokenizer ID                      | Max Context |
+|---------|------------------------------|------------------------------------|-------------|
+| mini    | NeoQuasar/Kronos-mini        | NeoQuasar/Kronos-Tokenizer-2k      | 2048        |
+| small   | NeoQuasar/Kronos-small       | NeoQuasar/Kronos-Tokenizer-base    | 512         |
+| base    | NeoQuasar/Kronos-base        | NeoQuasar/Kronos-Tokenizer-base    | 512         |
+
+If you pass `--model-id` it overrides the preset. Same for `--tokenizer-id`.
 
 ### Extra Dependencies
 

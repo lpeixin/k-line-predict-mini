@@ -1,18 +1,26 @@
-"""Kronos-mini integration layer.
+"""Kronos model integration layer.
 
-This module integrates the open-source Kronos-mini foundation model for
-K-line (OHLCV) forecasting. If the Kronos repository (https://github.com/shiyu-coder/Kronos)
-is not available in PYTHONPATH, a clear error is raised explaining how to
-install it. The previous local linear regression implementation has been
-removed in favour of the real Kronos-mini model.
+Supports dynamic selection of Kronos variants (mini / small / base) and custom
+tokenizer or model ids via:
+1. Constructor parameters
+2. Environment variables
+3. (Fallback defaults)
 
-Usage expectation:
-1. Clone Kronos (one-time):
-   git clone https://github.com/shiyu-coder/Kronos.git kronos_repo
-2. Add the repo root to PYTHONPATH or set env KRONOS_REPO_PATH.
-3. Ensure dependencies (torch >= 2.0 etc.) are installed.
+Environment variables (if constructor args omitted):
+    KRONOS_MODEL_VARIANT   -> one of: mini, small, base
+    KRONOS_MODEL_ID        -> full HF repo id e.g. NeoQuasar/Kronos-mini
+    KRONOS_TOKENIZER_ID    -> full HF tokenizer repo id
+    KRONOS_MAX_CONTEXT     -> int overriding default context length
+    KRONOS_DEVICE          -> e.g. cuda:0 / cpu
 
-We intentionally do NOT vendor Kronos code here to keep licensing & updates clean.
+Variant defaults (from Kronos model card):
+    mini  -> model: NeoQuasar/Kronos-mini,  tokenizer: NeoQuasar/Kronos-Tokenizer-2k,   max_context=2048
+    small -> model: NeoQuasar/Kronos-small, tokenizer: NeoQuasar/Kronos-Tokenizer-base, max_context=512
+    base  -> model: NeoQuasar/Kronos-base,  tokenizer: NeoQuasar/Kronos-Tokenizer-base, max_context=512
+
+Backward compatibility:
+    The older class name KronosMiniPredictor is kept as an alias pointing to
+    KronosModelPredictor (with default variant 'mini').
 """
 
 from __future__ import annotations
@@ -71,20 +79,68 @@ def _ensure_kronos_on_path() -> None:
     )
 
 
-class KronosMiniPredictor:
-    """Wrapper around Kronos-mini for next-N-day close price forecasting."""
+VARIANT_PRESETS = {
+    "mini": {
+        "model_id": "NeoQuasar/Kronos-mini",
+        "tokenizer_id": "NeoQuasar/Kronos-Tokenizer-2k",
+        "max_context": 2048,
+    },
+    "small": {
+        "model_id": "NeoQuasar/Kronos-small",
+        "tokenizer_id": "NeoQuasar/Kronos-Tokenizer-base",
+        "max_context": 512,
+    },
+    "base": {
+        "model_id": "NeoQuasar/Kronos-base",
+        "tokenizer_id": "NeoQuasar/Kronos-Tokenizer-base",
+        "max_context": 512,
+    },
+}
 
-    def __init__(self, device: str | None = None, max_context: int = 2048):
+
+class KronosModelPredictor:
+    """Wrapper for configurable Kronos model forecasting daily closes."""
+
+    def __init__(
+        self,
+        model_variant: str | None = None,
+        model_id: str | None = None,
+        tokenizer_id: str | None = None,
+        device: str | None = None,
+        max_context: int | None = None,
+    ) -> None:
         _ensure_kronos_on_path()
-        # Delayed imports until path is ensured
+
+        # Resolve configuration precedence: constructor > env > preset default
+        env_variant = os.getenv("KRONOS_MODEL_VARIANT")
+        variant = (model_variant or env_variant or "mini").lower()
+        if variant not in VARIANT_PRESETS:
+            raise ValueError(f"Unknown Kronos model variant '{variant}'. Valid: {list(VARIANT_PRESETS)}")
+
+        preset = VARIANT_PRESETS[variant]
+        resolved_model_id = model_id or os.getenv("KRONOS_MODEL_ID") or preset["model_id"]
+        resolved_tokenizer_id = tokenizer_id or os.getenv("KRONOS_TOKENIZER_ID") or preset["tokenizer_id"]
+        resolved_max_context = (
+            max_context
+            or (int(os.getenv("KRONOS_MAX_CONTEXT")) if os.getenv("KRONOS_MAX_CONTEXT") else None)
+            or preset["max_context"]
+        )
+
+        self.device = device or os.getenv("KRONOS_DEVICE") or ("cuda:0" if self._gpu_available() else "cpu")
+        self.max_context = resolved_max_context
+        self.model_variant = variant
+        self.model_id = resolved_model_id
+        self.tokenizer_id = resolved_tokenizer_id
+
+        # Safeguard: if variant small/base but context >512, clamp
+        if variant in ("small", "base") and self.max_context > 512:
+            self.max_context = 512
+
+        # Delayed imports after path adjustment
         from model import Kronos, KronosTokenizer, KronosPredictor  # type: ignore
 
-        self.device = device or ("cuda:0" if self._gpu_available() else "cpu")
-        self.max_context = max_context
-
-        # Load tokenizer & model from Hugging Face Hub (mini + 2k tokenizer)
-        self.tokenizer = KronosTokenizer.from_pretrained("NeoQuasar/Kronos-Tokenizer-2k")
-        self.model = Kronos.from_pretrained("NeoQuasar/Kronos-mini")
+        self.tokenizer = KronosTokenizer.from_pretrained(self.tokenizer_id)
+        self.model = Kronos.from_pretrained(self.model_id)
         self.predictor = KronosPredictor(
             self.model,
             self.tokenizer,
@@ -153,4 +209,17 @@ class KronosMiniPredictor:
         return pred_df["close"].tolist()
 
 
-__all__ = ["KronosMiniPredictor", "KronosNotAvailableError"]
+# Backward compatible alias
+class KronosMiniPredictor(KronosModelPredictor):
+    def __init__(self, **kwargs):  # type: ignore[override]
+        if "model_variant" not in kwargs and "model_id" not in kwargs:
+            kwargs["model_variant"] = "mini"
+        super().__init__(**kwargs)
+
+
+__all__ = [
+    "KronosModelPredictor",
+    "KronosMiniPredictor",
+    "KronosNotAvailableError",
+    "VARIANT_PRESETS",
+]

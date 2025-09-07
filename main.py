@@ -5,7 +5,12 @@ import sys
 from typing import Optional
 from database import StockDatabase
 from data_fetcher import DataFetcher
-from predictor import KronosMiniPredictor, KronosNotAvailableError
+from predictor import (
+    KronosMiniPredictor,
+    KronosModelPredictor,
+    KronosNotAvailableError,
+    VARIANT_PRESETS,
+)
 import pandas as pd
 from datetime import datetime, timedelta
 
@@ -13,17 +18,55 @@ from datetime import datetime, timedelta
 def main():
     parser = argparse.ArgumentParser(description="Local Stock Price Predictor")
     parser.add_argument("symbol", help="Stock symbol (e.g., AAPL, 000001, BTC)")
-    parser.add_argument("market", choices=["US", "HK", "CN", "crypto"], 
-                       help="Market type")
-    parser.add_argument("--days", type=int, default=5, 
-                       help="Number of days to predict (default: 5)")
+    parser.add_argument(
+        "market", choices=["US", "HK", "CN", "crypto"], help="Market type"
+    )
+    parser.add_argument(
+        "--days",
+        type=int,
+        default=5,
+        help="Number of days to predict (default: 5)",
+    )
+    parser.add_argument(
+        "--model-variant",
+        choices=list(VARIANT_PRESETS.keys()),
+        default=None,
+        help="Kronos model variant preset (mini/small/base). Overrides env if set.",
+    )
+    parser.add_argument(
+        "--model-id",
+        default=None,
+        help="Explicit Kronos model HF repo id (e.g. NeoQuasar/Kronos-small). Overrides variant preset.",
+    )
+    parser.add_argument(
+        "--tokenizer-id",
+        default=None,
+        help="Explicit Kronos tokenizer HF repo id (e.g. NeoQuasar/Kronos-Tokenizer-base).",
+    )
+    parser.add_argument(
+        "--device",
+        default=None,
+        help="Device for inference (e.g., cuda:0 or cpu). Defaults to GPU if available.",
+    )
+    parser.add_argument(
+        "--max-context",
+        type=int,
+        default=None,
+        help="Override max context length (will be clamped for small/base).",
+    )
     
     args = parser.parse_args()
     
     # Initialize components
     db = StockDatabase()
     fetcher = DataFetcher(db)
-    predictor = KronosMiniPredictor()
+    predictor = KronosModelPredictor(
+        model_variant=args.model_variant,
+        model_id=args.model_id,
+        tokenizer_id=args.tokenizer_id,
+        device=args.device,
+        max_context=args.max_context,
+    )
     
     print(f"Fetching data for {args.symbol} in {args.market} market...")
     
@@ -33,7 +76,9 @@ def main():
         print(f"Error: Could not fetch data for {args.symbol}")
         sys.exit(1)
     
-    print(f"Successfully fetched {len(data)} days of historical data")
+    print(
+        f"Successfully fetched {len(data)} days of historical data | Model: {predictor.model_id} | Tokenizer: {predictor.tokenizer_id} | Context: {predictor.max_context} | Device: {predictor.device}"
+    )
     
     # Get real-time price
     real_time_price = fetcher.get_real_time_price(args.symbol, args.market)
