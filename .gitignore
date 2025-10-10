@@ -40,8 +40,26 @@ ENV/
 .DS_Store
 Thumbs.db
 
-# Project specific
+# Project specific - Data and models
+data/
+kronos_repo/
+stock_data.db
+
+# Temporary files
+*.tmp
+*.temp
+temp/
+tmp/
+
+# Logs
 *.log
+logs/
+
+# Model checkpoints and cache
+*.ckpt
+*.pth
+model_cache/
+cache/
 
 # Jupyter Notebook
 .ipynb_checkpoints
