@@ -157,24 +157,33 @@ class KronosModelPredictor:
         except Exception:
             return False
 
-    def predict_next_days(self, data: pd.DataFrame, days: int = 5) -> List[float]:
+    def predict_next_days(self, data: pd.DataFrame, days: int = 5, granularity: str = "day") -> List[float]:
+        """Predict future prices for the next N days.
+
+        Args:
+            data: Historical OHLCV data with columns: open, high, low, close, volume, amount
+            days: Number of future periods to predict
+            granularity: Prediction granularity ('day' only for now, extensible)
+
+        Returns:
+            List of predicted close prices
+        """
         if data is None or data.empty:
             raise ValueError("No data provided for prediction")
         if days <= 0:
             raise ValueError("days must be > 0")
+        if granularity != "day":
+            raise ValueError("Only 'day' granularity is supported currently")
 
-        # Kronos expects lower-case column names: open, high, low, close (volume optional)
-        df = data.copy().rename(
-            columns={
-                "Open": "open",
-                "High": "high",
-                "Low": "low",
-                "Close": "close",
-                "Volume": "volume",
-            }
-        )
+        # Ensure data has required columns in lowercase
+        required_cols = ['open', 'high', 'low', 'close', 'volume', 'amount']
+        if not all(col in data.columns for col in required_cols):
+            raise ValueError(f"Data must contain columns: {required_cols}")
 
-        # Add missing optional columns
+        df = data.copy()
+        df.index = pd.to_datetime(df.index) if not isinstance(df.index, pd.DatetimeIndex) else df.index
+
+        # Add missing optional columns if needed
         if "amount" not in df.columns:
             df["amount"] = 0.0
 
@@ -186,7 +195,7 @@ class KronosModelPredictor:
         x_timestamp = pd.Series(x_df.index)
         last_ts = x_timestamp.iloc[-1]
 
-        # Generate future daily timestamps (simple calendar days; skipping weekends optional)
+        # Generate future daily timestamps
         future_ts = []
         cursor = last_ts
         while len(future_ts) < days:
@@ -196,7 +205,7 @@ class KronosModelPredictor:
 
         # Run Kronos forecasting
         pred_df = self.predictor.predict(
-            df=x_df[["open", "high", "low", "close", "volume", "amount"]],
+            df=x_df[required_cols],
             x_timestamp=x_timestamp,
             y_timestamp=y_timestamp,
             pred_len=days,
@@ -207,6 +216,14 @@ class KronosModelPredictor:
 
         # Return list of close prices
         return pred_df["close"].tolist()
+
+    @staticmethod
+    def load_data_from_csv(csv_path: str) -> pd.DataFrame:
+        """Load historical data from CSV file."""
+        df = pd.read_csv(csv_path, index_col=0, parse_dates=True)
+        # Ensure columns are lowercase
+        df.columns = df.columns.str.lower()
+        return df
 
 
 # Backward compatible alias
