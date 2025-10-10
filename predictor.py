@@ -183,6 +183,10 @@ class KronosModelPredictor:
         df = data.copy()
         df.index = pd.to_datetime(df.index) if not isinstance(df.index, pd.DatetimeIndex) else df.index
 
+        # Ensure timestamps are timezone-naive (remove timezone info if present)
+        if df.index.tz is not None:
+            df.index = df.index.tz_localize(None)
+
         # Add missing optional columns if needed
         if "amount" not in df.columns:
             df["amount"] = 0.0
@@ -191,8 +195,11 @@ class KronosModelPredictor:
         lookback = min(len(df), self.max_context)
         x_df = df.tail(lookback)
 
-        # Historical timestamps
+        # Historical timestamps - ensure they are timezone-naive
         x_timestamp = pd.Series(x_df.index)
+        if x_timestamp.dt.tz is not None:
+            x_timestamp = x_timestamp.dt.tz_localize(None)
+
         last_ts = x_timestamp.iloc[-1]
 
         # Generate future daily timestamps
@@ -202,6 +209,16 @@ class KronosModelPredictor:
             cursor = cursor + timedelta(days=1)
             future_ts.append(cursor)
         y_timestamp = pd.Series(future_ts)
+
+        # Debug: ensure y_timestamp is also timezone-naive
+        if hasattr(y_timestamp, 'dt') and y_timestamp.dt.tz is not None:
+            y_timestamp = y_timestamp.dt.tz_localize(None)
+
+        # Debug: print timestamp info
+        print(f"DEBUG: x_timestamp tz: {x_timestamp.dt.tz}")
+        print(f"DEBUG: y_timestamp tz: {y_timestamp.dt.tz if hasattr(y_timestamp, 'dt') else 'No dt attr'}")
+        print(f"DEBUG: x_timestamp sample: {x_timestamp.head()}")
+        print(f"DEBUG: y_timestamp sample: {y_timestamp.head()}")
 
         # Run Kronos forecasting
         pred_df = self.predictor.predict(
@@ -218,11 +235,22 @@ class KronosModelPredictor:
         return pred_df["close"].tolist()
 
     @staticmethod
-    def load_data_from_csv(csv_path: str) -> pd.DataFrame:
-        """Load historical data from CSV file."""
+    def load_data_from_csv(csv_path):
+        """Load stock data from CSV file and prepare for Kronos prediction."""
         df = pd.read_csv(csv_path, index_col=0, parse_dates=True)
-        # Ensure columns are lowercase
-        df.columns = df.columns.str.lower()
+        
+        # Convert index to DatetimeIndex and handle timezone
+        df.index = pd.to_datetime(df.index, utc=True)
+        df.index = df.index.tz_localize(None)  # Remove timezone info
+        
+        # Ensure required columns exist
+        required_cols = ['open', 'high', 'low', 'close', 'volume']
+        if not all(col in df.columns for col in required_cols):
+            raise ValueError(f"CSV must contain columns: {required_cols}")
+        
+        # Rename columns to match Kronos expectations if needed
+        # Note: CSV has both 'volume' and 'amount' columns, we use 'volume'
+        
         return df
 
 
