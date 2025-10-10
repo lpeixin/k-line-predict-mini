@@ -14,7 +14,10 @@ class DataFetcher:
         """Fetch US stock data using yfinance for specified date range."""
         try:
             ticker = yf.Ticker(symbol)
-            data = ticker.history(start=start_date, end=end_date)
+            # yfinance end date is exclusive, so add one day to include the end_date
+            end_dt = datetime.strptime(end_date, '%Y-%m-%d') + timedelta(days=1)
+            end_date_inclusive = end_dt.strftime('%Y-%m-%d')
+            data = ticker.history(start=start_date, end=end_date_inclusive)
             if data.empty:
                 return None
             # Standardize column names
@@ -33,7 +36,10 @@ class DataFetcher:
             if not symbol.endswith('.HK'):
                 symbol = f"{symbol}.HK"
             ticker = yf.Ticker(symbol)
-            data = ticker.history(start=start_date, end=end_date)
+            # yfinance end date is exclusive, so add one day to include the end_date
+            end_dt = datetime.strptime(end_date, '%Y-%m-%d') + timedelta(days=1)
+            end_date_inclusive = end_dt.strftime('%Y-%m-%d')
+            data = ticker.history(start=start_date, end=end_date_inclusive)
             if data.empty:
                 return None
             data = data[['Open', 'High', 'Low', 'Close', 'Volume']]
@@ -78,7 +84,10 @@ class DataFetcher:
             if not (symbol.endswith('-USD') or symbol.endswith('-USDT')):
                 symbol = f"{symbol}-USD"
             ticker = yf.Ticker(symbol)
-            data = ticker.history(start=start_date, end=end_date)
+            # yfinance end date is exclusive, so add one day to include the end_date
+            end_dt = datetime.strptime(end_date, '%Y-%m-%d') + timedelta(days=1)
+            end_date_inclusive = end_dt.strftime('%Y-%m-%d')
+            data = ticker.history(start=start_date, end=end_date_inclusive)
             if data.empty:
                 return None
             data = data[['Open', 'High', 'Low', 'Close', 'Volume']]
