@@ -157,13 +157,14 @@ class KronosModelPredictor:
         except Exception:
             return False
 
-    def predict_next_days(self, data: pd.DataFrame, days: int = 5, granularity: str = "day") -> List[float]:
+    def predict_next_days(self, data: pd.DataFrame, days: int = 5, granularity: str = "day", lookback_days: int = None) -> List[float]:
         """Predict future prices for the next N days.
 
         Args:
             data: Historical OHLCV data with columns: open, high, low, close, volume, amount
             days: Number of future periods to predict
             granularity: Prediction granularity ('day' only for now, extensible)
+            lookback_days: Number of historical days to use for prediction. If None, uses all available data within model context limit.
 
         Returns:
             List of predicted close prices
@@ -191,8 +192,14 @@ class KronosModelPredictor:
         if "amount" not in df.columns:
             df["amount"] = 0.0
 
-        # Determine lookback window (respect Kronos context limit)
-        lookback = min(len(df), self.max_context)
+        # Determine lookback window
+        if lookback_days is not None:
+            # User specified lookback days, but still respect model context limit
+            lookback = min(len(df), lookback_days, self.max_context)
+        else:
+            # Default behavior: use all available data within model context limit
+            lookback = min(len(df), self.max_context)
+        
         x_df = df.tail(lookback)
 
         # Historical timestamps - ensure they are timezone-naive

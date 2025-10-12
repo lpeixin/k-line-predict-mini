@@ -86,6 +86,9 @@ python main.py predict data/AAPL_US.csv
 # Predict next 10 days using small model
 python main.py predict data/AAPL_US.csv --model-variant small --days 10
 
+# Use only last 30 days of historical data for prediction
+python main.py predict data/AAPL_US.csv --lookback-days 30 --days 5
+
 # Use custom model and tokenizer
 python main.py predict data/AAPL_US.csv \
   --model-id NeoQuasar/Kronos-base \
@@ -96,6 +99,7 @@ python main.py predict data/AAPL_US.csv \
 **Parameters:**
 - `CSV_FILE`: Path to CSV file with historical data
 - `--days`: Number of future days to predict (default: 5)
+- `--lookback-days`: Number of historical days to use for prediction (default: use all available data within model context limit)
 - `--granularity`: Prediction granularity (default: day, currently only 'day' supported)
 - `--model-variant`: Kronos model variant (mini/small/base)
 - `--model-id`: Custom Hugging Face model repo ID

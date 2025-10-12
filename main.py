@@ -53,10 +53,17 @@ def predict_command(args):
     )
 
     print(f"Using model: {predictor.model_id} | Tokenizer: {predictor.tokenizer_id} | Context: {predictor.max_context} | Device: {predictor.device}")
+    
+    # Determine lookback info
+    lookback_info = f"all available data (within {predictor.max_context} context limit)"
+    if args.lookback_days is not None:
+        actual_lookback = min(len(data), args.lookback_days, predictor.max_context)
+        lookback_info = f"{actual_lookback} days (requested: {args.lookback_days})"
+    print(f"Using historical data: {lookback_info}")
 
     # Predict future prices
     try:
-        predictions = predictor.predict_next_days(data, args.days, args.granularity)
+        predictions = predictor.predict_next_days(data, args.days, args.granularity, lookback_days=args.lookback_days)
     except KronosNotAvailableError as e:
         print(str(e))
         sys.exit(2)
@@ -90,6 +97,9 @@ Examples:
 
   # Predict next 5 days using mini model
   python main.py predict data/AAPL_US.csv --model-variant mini --days 5
+
+  # Predict using only last 30 days of historical data
+  python main.py predict data/AAPL_US.csv --lookback-days 30 --days 5
 
   # Predict using custom model
   python main.py predict data/AAPL_US.csv --model-id NeoQuasar/Kronos-base --days 10
@@ -125,6 +135,12 @@ Examples:
         type=int,
         default=5,
         help='Number of future days to predict (default: 5)'
+    )
+    predict_parser.add_argument(
+        '--lookback-days',
+        type=int,
+        default=None,
+        help='Number of historical days to use for prediction (default: use all available data within model context limit)'
     )
     predict_parser.add_argument(
         '--granularity',
